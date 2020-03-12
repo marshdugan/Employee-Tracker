@@ -7,6 +7,8 @@ const questions = ["View All Employees", "View All Employees By Department", "Vi
 
 const roles = ["Salesperson", "Sales Lead", "Software Developer", "Senior Software Developer", "Lawyer", "Lead Legal Team", "HR Rep", "Engineer", "Lead Engineer", "Accountant"];
 
+const departments = ["Sales", "Engineering", "Finace", "Legal", "HR"];
+
 const connection = mysql.createConnection ({
     host: "localhost",
     port: 3306,
@@ -42,9 +44,9 @@ function allQuestions() {
         } else if (choice === questions[4]) { //Remove employee
             removeEmployee();
         } else if (choice === questions[5]) { //Update employee role
-            updateEmployee();
+            updateEmployeeRole();
         } else if (choice === questions[6]) { //Update employee manager
-            updateEmployee();
+            updateEmployeeManager();
         }
         else {
             connection.end();
@@ -53,14 +55,17 @@ function allQuestions() {
 }
 
 function viewEmployee() {
-    connection.query(`SELECT firstName AS 'First Name', 
+    connection.query(`SELECT employee.id AS ID,
+    firstName AS 'First Name', 
     lastName AS 'Last Name', 
     role.title AS Title, 
-    department.name AS Department, 
+    department.name AS Department,
+    role.salary AS Salary, 
     managerId as Manager
     FROM ((employee 
     INNER JOIN role ON employee.roleId = role.id)
-    INNER JOIN department ON role.department_id = department.id)`, function(err, data) {
+    INNER JOIN department ON role.department_id = department.id)`, 
+    function(err, data) {
         if (err) throw err;
         console.table(data);
         allQuestions();
@@ -68,7 +73,24 @@ function viewEmployee() {
 }
 
 function viewByDepartment() {
-    connection.query("SELECT * FROM employee INNER JOIN department ON employee.department = department.id")
+    inquirer.prompt([
+        {
+            type: "list",
+            message: "Which department would you like to view?",
+            choices: departments,
+            name: "userDep"
+        }
+    ]).then(function({userDep}) {
+        connection.query(`SELECT * FROM department 
+        INNER JOIN role ON role.department_id = department.id 
+        INNER JOIN  employee ON role.id = employee.roleId
+        WHERE ?`, {name: userDep}, 
+        function(err, data) {
+            if (err) throw err;
+            console.table(data);
+            allQuestions();
+        });
+    });
 }
 
 function viewByManager() {
@@ -115,4 +137,61 @@ function addEmployee() {
             });
         });
     });
+}
+
+function removeEmployee() {
+    connection.query("SELECT firstName, lastName FROM employee", function(err, data) {
+        if (err) throw err;
+        //Since data is an array of objects, we need to create a new array of string that contain firstName + lastName
+        console.log(data);
+        let nameArr = [];
+        for (let i = 0; i < data.length; i++) {
+            nameArr.push(data[i].firstName + " " + data[i].lastName);
+        }
+        inquirer.prompt([
+            {
+                type: "list",
+                message: "Who is being remove?",
+                choices: nameArr,
+                name: "nameList"
+            }
+        ]).then(function({nameList}) {
+            connection.query("DELETE FROM employee WHERE firstName = ? AND lastName = ?", [nameList.split(" ")[0], nameList.split(" ")[1]], function(err, result) {
+                if (err) throw err;
+                allQuestions();
+            });
+        });
+    });
+}
+
+function updateEmployeeRole() {
+    connection.query("SELECT firstName, lastName FROM employee", function(err, data) {
+        if (err) throw err;
+        //Since data is an array of objects, we need to create a new array of string that contain firstName + lastName
+        console.log(data);
+        let nameArr = [];
+        for (let i = 0; i < data.length; i++) {
+            nameArr.push(data[i].firstName + " " + data[i].lastName);
+        }
+        inquirer.prompt([
+            {
+                type: "list",
+                message: "Select the person you wish to update?",
+                choices: nameArr,
+                name: "nameList"
+            },
+            {
+                type: "list",
+                message: "Select the new role.",
+                choices: roles,
+                name: "newRole"
+            }
+        ]).then(function({nameList, newRole}) {
+            //connection.query("UPDATE employee roleId = ? WHERE role.title = ?")       
+        });
+    });
+}
+
+function updateEmployeeManager() {
+    allQuestions();
 }
